@@ -1,6 +1,11 @@
 data Expr = Val Int | App Op Expr Expr
 data Op = Add | Mul
 
+eval :: Expr -> Int
+eval (Val n) = n
+eval (App Add e1 e2) = eval(e1) + eval(e2) 
+eval (App Mul e1 e2) = eval(e1) * eval(e2) 
+
 instance Show Op where
     show Add = "+"
     show Mul = "*"
@@ -24,5 +29,8 @@ exprs ns = [App o l r | (ls, rs) <- split ns,
                         r        <- exprs rs,
                         o        <- [Add, Mul]]
 
--- > exprs [1,2,3]
--- > [1+(2+3),1*(2+3),1+(2*3),1*(2*3),(1+2)+3,(1+2)*3,(1*2)+3,(1*2)*3]
+solve :: [Int] -> Int -> [Expr]
+solve ns t = [e | e <- exprs ns, eval e == t]
+
+-- > solve [1, 2, 3, 4] 10
+-- > [1+(2+(3+4)),1+((2+3)+4),1*((2*3)+4),(1+2)+(3+4),(1+(2+3))+4,(1*(2*3))+4,((1+2)+3)+4,((1*2)*3)+4]
