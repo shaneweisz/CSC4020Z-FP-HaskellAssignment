@@ -19,7 +19,7 @@ eval (App Mul e1 e2) = eval(e1) * eval(e2)
 
 values :: Expr -> [Int]
 values (Val n) = [n]
-values (App o e1 e2) = values e1 ++ values e2
+values (App _ e1 e2) = values e1 ++ values e2
 
 -- Example usage:
 
