@@ -18,6 +18,14 @@ instance Show Expr where
                              parenthesize e = "(" ++ show e ++ ")"
 
 
+delete :: Int -> [Int] -> [Int]
+delete v [] = []
+delete v (x:xs) = if x == v then xs else x : delete v xs
+
+perms :: [Int] -> [[Int]]
+perms [] = [[]]
+perms xs = [i:js | i <- xs, js <- perms (delete i xs)]
+
 split :: [Int] -> [([Int],[Int])]
 split xs = [(take i xs, drop i xs) | i <- [1 .. length xs - 1]]
 
@@ -30,7 +38,9 @@ exprs ns = [App o l r | (ls, rs) <- split ns,
                         o        <- [Add, Mul]]
 
 solve :: [Int] -> Int -> [Expr]
-solve ns t = [e | e <- exprs ns, eval e == t]
+solve ns t = [e | ps <- perms ns,
+                  e  <- exprs ps, 
+                  eval e == t]
 
 -- > solve [1, 2, 3, 4] 10
 -- > [1+(2+(3+4)),1+((2+3)+4),1*((2*3)+4),(1+2)+(3+4),(1+(2+3))+4,(1*(2*3))+4,((1+2)+3)+4,((1*2)*3)+4]
