@@ -1,40 +1,42 @@
 {-  A Tape consists of:
-        1) The head - the symbol it's pointing to
-        2) A list of symbols on the left of the head
+        1) A list of symbols on the left of the head
+        2) The head - the symbol the tape is pointing to
         3) A list of symbols on the right of the head
-    The type a will typically be Char
--}
+    The type a will typically be Char -}
 data Tape a = Tape [a] a [a] 
 
 {-  A TM consists of:
         1) The alphabet symbols
         2) The list of states states
-        3) The start state
+        3) The starting state
         4) The starting tape
-        5) The transition function
-    The type a will typically be Char
--}
+        5) The transition function -}
 data TM a s = TM [a] [s] s (Tape a) (s -> Tape a -> Maybe (s, Tape a))
 
--- Display Tapes consisting of Char symbols
+-- Display a Tape made up of Char symbols
 showTape :: Tape Char -> String
 showTape (Tape ls h rs) = reverse (take 10 ls) ++ "|" ++ [h] ++ "|" ++ (take 10 rs)
 
+-- Moves the head of the Tape one symbol to the left
 moveLeft :: Tape a -> Tape a
 moveLeft (Tape (l:ls) h rs) = Tape ls l (h:rs)
 
+-- Moves the head of the Tape one symbol to the right
 moveRight :: Tape a -> Tape a
 moveRight (Tape ls h (r:rs)) = Tape (h:ls) r rs
 
+-- Writes a new value at the head of the Tape
 write :: Tape a -> a -> Tape a
 write (Tape ls x rs) v = Tape ls v rs
 
+-- Runs a TM until it halts (the transition function returns Nothing), and then returns the final Tape
 runTM :: TM a s -> Tape a
 runTM (TM as ss s0 t0 tf) =
     case tf s0 t0 of 
-        Just(s1, t1) -> runTM (TM as ss s1 t1 tf)
         Nothing -> t0
-
+        Just(s1, t1) -> runTM (TM as ss s1 t1 tf)
+        
+-- Extract the value at the head of the Tape
 getTapeHead :: Tape a -> a
 getTapeHead (Tape ls x rs) = x
 
@@ -42,17 +44,10 @@ getTapeHead (Tape ls x rs) = x
 outputTM :: TM a s -> a
 outputTM tm = getTapeHead (runTM tm)
 
-getConfigsTM :: TM a s -> [(s, a, Tape a)]
-getConfigsTM (TM as ss s0 t0@(Tape _ h0 _) tf) =
-    (s0, h0, t0) : case tf s0 t0 of 
-                Just(s1, t1) -> getConfigsTM (TM as ss s1 t1 tf)
-                Nothing -> []
-
 {- Transition function for palindrome detection
    States are Strings e.g. q0, q1, ... , qAccept, qReject
    s is the current state
-   h is the input symbol (current head of the tape)
--}
+   h is the input symbol (current head of the tape) -}
 palinTF :: String -> Tape Char -> Maybe (String, Tape Char)
 palinTF s t@(Tape _ h _) = 
     case (s,h) of
@@ -83,34 +78,101 @@ palinTF s t@(Tape _ h _) =
         ("qAccept", 'a') -> Nothing -- Halt the TM, since we have accepted
         ("qReject", 'b') -> Nothing -- Halt the TM, since we have rejected
 
-
 -- Infinite list of blank symbols for the left and right of the tape
 blanks :: [Char]
 blanks = repeat '_' 
 
-tPal1, tPal2, tPal3, tPal4 :: Tape Char
-tPal1 = Tape blanks 'a' ("bba" ++ blanks)
-tPal2 = Tape blanks 'b' ("aabaab" ++ blanks)
-tPal3 = Tape blanks '_' blanks
-tPal4 = Tape blanks 'b' blanks
-tPal5 = Tape blanks 'a' ("bab" ++ blanks)
-
-tPalTest :: Tape Char
-tPalTest =  Tape blanks 'a' ("ba" ++ blanks)
-
-tmPal :: Tape Char -> TM Char String
-tmPal t = TM ['-','a','b'] ["q0", "qA1", "qA2", "qA3", "qB1", "qB2", "qB3", "qC", "qAccept", "qReject"] "q0" t palinTF
-
--- Outputs the TM configurations in the required format
-showConfigs :: TM Char String -> IO ()
-showConfigs tm = sequence_ (map (\(s,i,t)-> putStrLn ("<" ++ show s ++ ", " ++ show i ++ ", " ++ showTape t ++ ">"))
-                    (getConfigsTM tm))
-
--- Creates a tape using the given input string
+-- Returns a tape using the given input string
+-- The tape points to the first symbol in the input string
+--  and has blanks on the left and right of the string 
 generateTape :: String -> Tape Char
 generateTape (l:rs) = Tape blanks l (rs ++ blanks) 
 
+-- Creates a TM using the palindrome transition function and an inputted tape
+palinTM :: Tape Char -> TM Char String
+palinTM t = TM ['_','a','b'] ["q0", "qA1", "qA2", "qA3", "qB1", "qB2", "qB3", "qC", "qAccept", "qReject"] "q0" t palinTF
+
 -- Takes in a string of a's and b's
--- Returns a if it is a palindrome, b otherwise
+-- Returns 'a' if it is a palindrome, 'b' otherwise
 checkPalindrome :: String -> Char
-checkPalindrome s = outputTM (tmPal (generateTape s))
+checkPalindrome s = outputTM (palinTM (generateTape s))
+
+-- Gets the next state based on the transition function
+-- s is the current state
+-- h is the symbol at the head of the tape is
+getNextState :: String -> Char -> String
+getNextState s h = 
+    case (s,h) of
+        ("q0", '_') -> "qAcc ept"
+        ("q0", 'a') -> "qA1"
+        ("q0", 'b') -> "qB1"
+        ("qA1", '_') -> "qAccept"
+        ("qA1", 'a') -> "qA2"
+        ("qA1", 'b') -> "qA2"
+        ("qA2", 'a') -> "qA2"
+        ("qA2", 'b') -> "qA2"
+        ("qA2", '_') -> "qA3"
+        ("qA3", 'b') -> "qReject"
+        ("qA3", 'a') -> "qC"
+        ("qA3", '_') -> "qC"
+        ("qC", 'a') -> "qC"
+        ("qC", 'b') -> "qC"
+        ("qC", '_') -> "q0"
+        ("qB1", '_') -> "qAccept"
+        ("qB1", 'a') -> "qB2"
+        ("qB1", 'b') -> "qB2"
+        ("qB2", 'a') -> "qB2"
+        ("qB2", 'b') -> "qB2"
+        ("qB2", '_') -> "qB3"
+        ("qB3", 'a') -> "qReject"
+        ("qB3", 'b') -> "qC"
+        ("qB3", '_') -> "qC"
+        ("qAccept", 'a') -> "qAccept"
+        ("qReject", 'b') -> "qAccept"
+
+-- Gets the next symbol to be written based on the transition function
+-- s is the current state
+-- h is the symbol at the head of the tape is
+getWriteSymbol :: String -> Char -> Char
+getWriteSymbol s h =
+    case (s,h) of
+    ("q0", '_') -> 'a'
+    ("q0", 'a') -> '_'
+    ("q0", 'b') -> '_'
+    ("qA1", '_') -> 'a'
+    ("qA1", 'a') -> 'a'
+    ("qA1", 'b') -> 'b'
+    ("qA2", 'a') -> 'a'
+    ("qA2", 'b') -> 'b'
+    ("qA2", '_') -> '_'
+    ("qA3", 'b') -> 'b'
+    ("qA3", 'a') -> '_'
+    ("qA3", '_') -> '-'
+    ("qC", 'a') -> 'a'
+    ("qC", 'b') -> 'b'
+    ("qC", '_') -> '_'
+    ("qB1", '_') -> 'a'
+    ("qB1", 'a') -> 'a'
+    ("qB1", 'b') -> 'b'
+    ("qB2", 'a') -> 'a'
+    ("qB2", 'b') -> 'b'
+    ("qB2", '_') -> '_'
+    ("qB3", 'a') -> 'b'
+    ("qB3", 'b') -> '_'
+    ("qB3", '_') -> '_'
+    ("qAccept", 'a') -> 'a'
+    ("qReject", 'b') -> 'b'
+
+-- Get the list of TM configurations in computing the palindrome check function
+getConfigsTM :: TM Char String -> [(String, Char, Char, String)]
+getConfigsTM (TM as ss s0 t0@(Tape _ h0 _) tf) =
+    (s0, h0, getWriteSymbol s0 h0, getNextState s0 h0) : case tf s0 t0 of 
+                Nothing -> []
+                Just(s1, t1) -> getConfigsTM (TM as ss s1 t1 tf)
+
+-- Outputs the list of TM configurations in computing the palindrome check function, in the following format:
+-- < CurrentState, InputSymbol, OutputSymbol, NewState >
+showConfigs :: TM Char String -> IO ()
+showConfigs tm = sequence_ (map (\(s,i,j,n)-> putStrLn ("< " ++ show s ++ ", " ++ show i ++ ", " ++ show j ++ ", " ++ show n ++ " >"))
+                    (init (getConfigsTM tm)))             
+
