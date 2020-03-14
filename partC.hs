@@ -19,11 +19,9 @@ data TM a s = TM [a] [s] s (Tape a) (s -> Tape a -> Maybe (s, Tape a))
 -- Display Tapes consisting of Char symbols
 showTape :: Tape Char -> String
 showTape (Tape ls h rs) = reverse (take 10 ls) ++ "|" ++ [h] ++ "|" ++ (take 10 rs)
--- e.g. showTape (Tape ['2','1'] '3' ['4', '5'])
 
 moveLeft :: Tape a -> Tape a
 moveLeft (Tape (l:ls) h rs) = Tape ls l (h:rs)
--- e.g. showTape (moveLeft (Tape ['2','1'] '3' ['4', '5']))
 
 moveRight :: Tape a -> Tape a
 moveRight (Tape ls h (r:rs)) = Tape (h:ls) r rs
@@ -37,28 +35,24 @@ runTM (TM as ss s0 t0 tf) =
         Just(s1, t1) -> runTM (TM as ss s1 t1 tf)
         Nothing -> t0
 
+getTapeHead :: Tape a -> a
 getTapeHead (Tape ls x rs) = x
 
+-- Get the output resulting from running the TM 
 outputTM :: TM a s -> a
 outputTM tm = getTapeHead (runTM tm)
 
-showConfigsTM :: TM a s -> [(s, a, Tape a)]
-showConfigsTM (TM as ss s0 t0@(Tape _ h0 _) tf) =
+getConfigsTM :: TM a s -> [(s, a, Tape a)]
+getConfigsTM (TM as ss s0 t0@(Tape _ h0 _) tf) =
     (s0, h0, t0) : case tf s0 t0 of 
-                Just(s1, t1) -> showConfigsTM (TM as ss s1 t1 tf)
+                Just(s1, t1) -> getConfigsTM (TM as ss s1 t1 tf)
                 Nothing -> []
 
-showConfigsTM' :: TM a s -> [Tape a]
-showConfigsTM' (TM as ss s0 t0 tf) =
-    t0 : case tf s0 t0 of 
-                Just(s1, t1) -> showConfigsTM' (TM as ss s1 t1 tf)
-                Nothing -> []
--- map showTape (showConfigsTM' (tmPal tPalTest))
-
--- Transition function for palindrome detection
--- States are Strings e.g. q0, q1, ... , qAccept, qReject
--- s is the current state
--- h is the input symbol (current head of the tape)
+{- Transition function for palindrome detection
+   States are Strings e.g. q0, q1, ... , qAccept, qReject
+   s is the current state
+   h is the input symbol (current head of the tape)
+-}
 palinTF :: String -> Tape Char -> Maybe (String, Tape Char)
 palinTF s t@(Tape _ h _) = 
     case (s,h) of
@@ -88,8 +82,6 @@ palinTF s t@(Tape _ h _) =
         ("qB3", '_') -> Just ("qC", moveLeft (write t '_')) -- This situation won't arise since we have just moved left from the first '_'
         ("qAccept", 'a') -> Nothing -- Halt the TM, since we have accepted
         ("qReject", 'b') -> Nothing -- Halt the TM, since we have rejected
-        _ -> error (show s ++ show h)
-
 
 
 -- Infinite list of blank symbols for the left and right of the tape
@@ -109,5 +101,16 @@ tPalTest =  Tape blanks 'a' ("ba" ++ blanks)
 tmPal :: Tape Char -> TM Char String
 tmPal t = TM ['-','a','b'] ["q0", "qA1", "qA2", "qA3", "qB1", "qB2", "qB3", "qC", "qAccept", "qReject"] "q0" t palinTF
 
-test tm = sequence_ (map (\(s,i,t)-> putStrLn ("<" ++ show s ++ ", " ++ show i ++ ", " ++ showTape t ++ ">"))
-                    (showConfigsTM tm))
+-- Outputs the TM configurations in the required format
+showConfigs :: TM Char String -> IO ()
+showConfigs tm = sequence_ (map (\(s,i,t)-> putStrLn ("<" ++ show s ++ ", " ++ show i ++ ", " ++ showTape t ++ ">"))
+                    (getConfigsTM tm))
+
+-- Creates a tape using the given input string
+generateTape :: String -> Tape Char
+generateTape (l:rs) = Tape blanks l (rs ++ blanks) 
+
+-- Takes in a string of a's and b's
+-- Returns a if it is a palindrome, b otherwise
+checkPalindrome :: String -> Char
+checkPalindrome s = outputTM (tmPal (generateTape s))
