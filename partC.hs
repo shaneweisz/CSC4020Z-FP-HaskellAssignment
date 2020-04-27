@@ -29,7 +29,7 @@ moveRight (Tape ls h (r:rs)) = Tape (h:ls) r rs
 write :: Tape a -> a -> Tape a
 write (Tape ls x rs) v = Tape ls v rs
 
--- Runs a TM until it halts (the transition function returns Nothing), and then returns the final Tape
+-- Runs a TM until it halts (when the transition function returns Nothing), and then returns the final Tape
 runTM :: TM a s -> Tape a
 runTM (TM as ss s0 t0 tf) =
     case tf s0 t0 of 
@@ -62,7 +62,7 @@ palinTF s t@(Tape _ h _) =
         ("qA2", '_') -> Just ("qA3", moveLeft t)
         ("qA3", 'b') -> Just ("qReject", write t 'b')
         ("qA3", 'a') -> Just ("qC", moveLeft (write t '_'))
-        ("qA3", '_') -> Just ("qC", moveLeft (write t '_')) -- This situation won't arise since we have just moved left from the first '_'
+        ("qA3", '_') -> Just ("qC", moveLeft (write t '_')) 
         ("qC", 'a') -> Just ("qC", moveLeft t) 
         ("qC", 'b') -> Just ("qC", moveLeft t) 
         ("qC", '_') -> Just ("q0", moveRight t) -- First and last symbol have matched up so we are back at the start state
@@ -74,7 +74,7 @@ palinTF s t@(Tape _ h _) =
         ("qB2", '_') -> Just ("qB3", moveLeft t)
         ("qB3", 'a') -> Just ("qReject", write t 'b')
         ("qB3", 'b') -> Just ("qC", moveLeft (write t '_'))
-        ("qB3", '_') -> Just ("qC", moveLeft (write t '_')) -- This situation won't arise since we have just moved left from the first '_'
+        ("qB3", '_') -> Just ("qC", moveLeft (write t '_')) 
         ("qAccept", 'a') -> Nothing -- Halt the TM, since we have accepted
         ("qReject", 'b') -> Nothing -- Halt the TM, since we have rejected
 
@@ -103,7 +103,7 @@ checkPalindrome s = outputTM (palinTM (generateTape s))
 getNextState :: String -> Char -> String
 getNextState s h = 
     case (s,h) of
-        ("q0", '_') -> "qAcc ept"
+        ("q0", '_') -> "qAccept"
         ("q0", 'a') -> "qA1"
         ("q0", 'b') -> "qB1"
         ("qA1", '_') -> "qAccept"

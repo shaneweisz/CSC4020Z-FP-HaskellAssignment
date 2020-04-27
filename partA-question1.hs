@@ -1,3 +1,5 @@
-prod :: Num p => [p] -> p
-prod [] = 1
-prod (x:xs) = x * prod xs
+import Prelude hiding (product)
+
+product :: Num p => [p] -> p
+product [] = 1
+product (x:xs) = x * product xs
